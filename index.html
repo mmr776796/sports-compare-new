@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>不同运动类型改善 BMI 效果对比</title>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
+<style>
+:root {
+  color-scheme: normal;
+  --text-primary: #ffffff;
+  --text-secondary: rgba(255, 255, 255, 0.88);
+  --text-muted: rgba(255, 255, 255, 0.72);
+  --line: rgba(255, 255, 255, 0.24);
+  --line-soft: rgba(255, 255, 255, 0.13);
+  --tooltip: rgba(18, 21, 26, 0.96);
+  --tooltip-shadow: 0 18px 42px rgba(0, 0, 0, 0.32);
+  --s-hiit: #2a78d6;
+  --s-ce: #1baf7a;
+  --s-mict: #eda100;
+  --s-mae: #008300;
+  --s-rt: #9a63d5;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  min-height: 100%;
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+body {
+  font-family: SimSun, "宋体", serif;
+  background: transparent;
+  color: var(--text-primary);
+  padding: clamp(14px, 2.5vw, 28px);
+}
+
+button { font: inherit; }
+
+.dashboard {
+  width: min(100%, 820px);
+  margin: 0 auto;
+  background: transparent;
+}
+
+.dashboard,
+.main-row,
+.chart-wrap,
+.chart-container,
+.stat-row,
+.stat-item,
+canvas {
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-bottom: 20px;
+}
+
+.view-toggle:focus-visible { outline: 3px solid color-mix(in srgb, var(--s-hiit) 30%, transparent); outline-offset: 3px; }
+
+.view-toggles {
+  flex: 1;
+  display: flex;
+  gap: clamp(14px, 4vw, 34px);
+  overflow-x: auto;
+  scrollbar-width: none;
+  border-bottom: 1px solid var(--line);
+}
+
+.view-toggles::-webkit-scrollbar { display: none; }
+
+.view-toggle {
+  position: relative;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 0 13px;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color .2s ease;
+}
+
+.view-toggle::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--line);
+  transition: transform .25s ease, background .25s ease;
+}
+
+.view-toggle::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--s-hiit);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform .25s ease;
+}
+
+.view-toggle:hover { color: var(--text-primary); }
+.view-toggle.active { color: var(--text-primary); }
+.view-toggle.active::before { background: var(--s-hiit); transform: scale(1.35); }
+.view-toggle.active::after { transform: scaleX(1); }
+
+.chart-intro {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  margin: 0 0 6px;
+}
+
+.chart-intro h2 {
+  margin: 0;
+  font-size: clamp(18px, 2.5vw, 22px);
+  line-height: 1.25;
+  letter-spacing: -.02em;
+}
+
+.subtitle {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.subtitle strong { color: var(--text-primary); font-weight: 650; }
+
+.chart-wrap {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+}
+
+.main-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 190px;
+  align-items: stretch;
+  gap: clamp(16px, 2vw, 20px);
+  height: 430px;
+}
+
+.chart-wrap { height: 100%; }
+.chart-container { width: 100%; height: 100%; }
+
+.stat-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: repeat(var(--stat-count, 5), minmax(0, 1fr));
+  gap: 0;
+  padding: 14px 0 48px;
+  min-width: 0;
+  height: 100%;
+}
+
+.stat-item {
+  position: relative;
+  min-width: 0;
+  height: calc(100% - 8px);
+  align-self: center;
+  padding: 5px 10px 5px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: transparent;
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  transition: transform .25s ease;
+}
+
+.stat-item::before {
+  content: "";
+  position: absolute;
+  top: 13px;
+  bottom: 13px;
+  left: -1px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--series-color);
+  transition: top .25s ease, bottom .25s ease;
+}
+
+.stat-item:hover { transform: translateX(-3px); }
+.stat-item:hover::before { top: 8px; bottom: 8px; }
+
+.stat-topline {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 9px;
+}
+
+.stat-content { min-width: 0; }
+
+.stat-icon {
+  display: block;
+  width: 58px;
+  height: 52px;
+  object-fit: contain;
+  object-position: center;
+  padding: 2px;
+  border: 1px solid color-mix(in srgb, var(--series-color) 55%, transparent);
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--series-color) 14%, transparent);
+}
+
+.stat-name {
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.stat-value {
+  margin-top: 2px;
+  color: var(--text-primary);
+  font-size: clamp(17px, 1.8vw, 20px);
+  font-weight: 720;
+  line-height: 1.15;
+  letter-spacing: -.025em;
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-meta {
+  margin-top: 2px;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (max-width: 780px) {
+  body { padding: 16px 14px 24px; }
+  .toolbar { margin-bottom: 22px; }
+  .chart-intro { gap: 3px; }
+  .main-row { grid-template-columns: 1fr; gap: 18px; height: auto; }
+  .chart-wrap { height: 350px; }
+  .stat-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: none;
+    padding: 0;
+    gap: 10px;
+    height: auto;
+  }
+
+  .stat-item { height: auto; }
+}
+
+@media (max-width: 420px) {
+  .view-toggles { gap: 20px; }
+  .view-toggle { font-size: 13px; }
+  .chart-wrap { height: 330px; }
+  .stat-row { grid-template-columns: 1fr; gap: 10px; }
+  .stat-value { font-size: 20px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
+}
+</style>
+</head>
+<body>
+<main class="dashboard" id="exerciseTypeBarChartPencilArt">
+  <div class="toolbar">
+    <nav class="view-toggles" id="viewToggles" aria-label="图表指标">
+      <button class="view-toggle active" type="button" data-view="bmi" aria-pressed="true">BMI 降低效果</button>
+      <button class="view-toggle" type="button" data-view="sucra" aria-pressed="false">综合效果排名</button>
+      <button class="view-toggle" type="button" data-view="dose" aria-pressed="false">最低有效剂量</button>
+    </nav>
+  </div>
+
+  <section aria-labelledby="chartTitle">
+    <div class="chart-intro">
+      <h2 id="chartTitle">BMI 平均降低幅度</h2>
+      <p class="subtitle" id="chartSubtitle"></p>
+    </div>
+    <div class="main-row">
+      <div class="chart-wrap">
+        <div class="chart-container" id="mainChart" role="img" aria-label="五种运动类型的 BMI 降低效果横向柱状图"></div>
+        <p class="sr-only" id="chartSummary" aria-live="polite"></p>
+      </div>
+      <div class="stat-row" id="statRow" aria-label="详细数据"></div>
+    </div>
+  </section>
+</main>
+
+<script>
+(function () {
+  const exercises = [
+    {
+      id: 'HIIT', image: 'assets/hiit-reference-style-trimmed.png', imageRatio: 1.452, short: '高强度间歇训练',
+      full: '冲刺跑与慢跑或慢走恢复交替进行',
+      bmiMD: -1.33, bmiLow: -2.01, bmiHigh: -0.66,
+      sucra: 77.68, dose: 76, n: 117, arms: 11, cssVar: '--s-hiit'
+    },
+    {
+      id: 'CT', image: 'assets/ct-reference-style-trimmed.png', imageRatio: 1.402, short: '有氧、抗阻结合训练',
+      full: '跳绳 10 分钟（有氧），再举小哑铃 3 组（抗阻）',
+      bmiMD: -1.25, bmiLow: -1.93, bmiHigh: -0.61,
+      sucra: 66.4, dose: 130, n: 297, arms: 11, cssVar: '--s-ce'
+    },
+    {
+      id: 'MICT', image: 'assets/mict-reference-style-trimmed.png', imageRatio: 0.600, short: '中等强度持续训练',
+      full: '以稳定速度持续慢跑',
+      bmiMD: -1.09, bmiLow: -1.73, bmiHigh: -0.45,
+      sucra: 65.5, dose: 250, n: 320, arms: 12, cssVar: '--s-mict'
+    },
+    {
+      id: 'MVAE', image: 'assets/mvae-reference-style-trimmed.png', imageRatio: 0.935, short: '中高强度有氧运动',
+      full: '足球、篮球、排球等球类运动，或街舞、健身操等运动舞蹈',
+      bmiMD: -1.05, bmiLow: -1.67, bmiHigh: -0.42,
+      sucra: 52.3, dose: 220, n: 227, arms: 12, cssVar: '--s-mae'
+    },
+    {
+      id: 'RT', image: 'assets/rt-reference-style-trimmed.png', imageRatio: 2.020, short: '抗阻训练',
+      full: '通过俯卧撑等动作对抗自身重量或外部阻力',
+      bmiMD: -0.58, bmiLow: -1.25, bmiHigh: 0.09,
+      sucra: 25.3, dose: null, n: 222, arms: 9, cssVar: '--s-rt'
+    }
+  ];
+
+  const copy = {
+    bmi: {
+      title: 'BMI 平均降低幅度',
+      subtitle: '数值为干预前后的 <strong>平均差值（MD）</strong>。横条越长，代表 BMI 降低越明显。',
+      axis: 'BMI 降低幅度（kg/m²）',
+      aria: '五种运动类型的 BMI 平均降低幅度对比'
+    },
+    sucra: {
+      title: '综合效果排名',
+      subtitle: '<strong>SUCRA</strong> 越接近 100%，成为最优干预方案的可能性越高。',
+      axis: 'SUCRA 评分（%）',
+      aria: '五种运动类型的 SUCRA 综合效果排名对比'
+    },
+    dose: {
+      title: '达到临床效益所需的最低剂量',
+      subtitle: '<strong>METs-min/天</strong> 表示代谢当量与运动时长的乘积；数值越低，时间效率越高。',
+      axis: '最低有效剂量（METs-min/天）',
+      aria: '四种具有有效剂量数据的运动类型对比'
+    }
+  };
+
+  const root = document.documentElement;
+  const chartDom = document.getElementById('mainChart');
+  const chartTitle = document.getElementById('chartTitle');
+  const chartSubtitle = document.getElementById('chartSubtitle');
+  const chartSummary = document.getElementById('chartSummary');
+  const statRow = document.getElementById('statRow');
+  const viewToggles = document.getElementById('viewToggles');
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let currentView = 'bmi';
+  let myChart = null;
+
+  function color(name) {
+    return getComputedStyle(root).getPropertyValue(name).trim();
+  }
+
+  function sortedData() {
+    const available = currentView === 'dose'
+      ? exercises.filter(function (item) { return item.dose != null; })
+      : exercises;
+    return available.slice().sort(function (a, b) {
+      if (currentView === 'bmi') return a.bmiMD - b.bmiMD;
+      if (currentView === 'sucra') return b.sucra - a.sucra;
+      if (a.dose == null) return 1;
+      if (b.dose == null) return -1;
+      return a.dose - b.dose;
+    });
+  }
+
+  function valueText(item) {
+    if (currentView === 'bmi') return item.bmiMD.toFixed(2) + ' kg/m²';
+    if (currentView === 'sucra') return item.sucra.toFixed(1) + '%';
+    if (item.dose == null) return '未发现显著阈值';
+    return item.dose + ' METs-min/天';
+  }
+
+  function metaText(item) {
+    if (currentView === 'bmi') {
+      return '95% 可信区间 [' + item.bmiLow.toFixed(2) + ', ' + item.bmiHigh.toFixed(2) + ']';
+    }
+    if (currentView === 'sucra') return '纳入 ' + item.n + ' 人 · ' + item.arms + ' 个研究组';
+    if (item.dose == null) return '论文未发现显著剂量-反应关系';
+    return 'BMI 平均降低 ' + Math.abs(item.bmiMD).toFixed(2) + ' kg/m²';
+  }
+
+  function renderStats(data) {
+    statRow.style.setProperty('--stat-count', data.length);
+    statRow.innerHTML = data.map(function (item) {
+      return '<article class="stat-item" style="--series-color:' + color(item.cssVar) + '">' +
+        '<img class="stat-icon" src="' + item.image + '" alt="" aria-hidden="true">' +
+        '<div class="stat-content"><div class="stat-topline"><span class="stat-name">' + item.id + '</span></div>' +
+        '<div class="stat-value">' + valueText(item) + '</div>' +
+        '<div class="stat-meta">' + metaText(item) + '</div></div>' +
+        '</article>';
+    }).join('');
+
+    chartSummary.textContent = data.map(function (item, index) {
+      return '第 ' + (index + 1) + ' 名，' + item.id + ' ' + item.short + '，' + valueText(item);
+    }).join('；') + '。';
+  }
+
+  function renderChart(data) {
+    const textPrimary = color('--text-primary');
+    const textSecondary = color('--text-secondary');
+    const textMuted = color('--text-muted');
+    const line = color('--line-soft');
+    const tooltipBg = color('--tooltip');
+    const axisRich = {};
+    data.forEach(function (item) {
+      const maxWidth = 90;
+      const maxHeight = 54;
+      const imageWidth = Math.min(maxWidth, maxHeight * item.imageRatio);
+      const imageHeight = imageWidth / item.imageRatio;
+      axisRich['img_' + item.id] = {
+        width: Math.round(imageWidth),
+        height: Math.round(imageHeight),
+        align: 'center',
+        backgroundColor: { image: item.image }
+      };
+    });
+    axisRich.code = {
+      width: 86,
+      align: 'center',
+      color: textSecondary,
+      fontFamily: 'SimSun, 宋体, serif',
+      fontSize: 13,
+      fontWeight: 700,
+      lineHeight: 21
+    };
+
+    const seriesData = data.map(function (item) {
+      const missingDose = currentView === 'dose' && item.dose == null;
+      const value = currentView === 'bmi' ? Math.abs(item.bmiMD) : missingDose ? 0 : item[currentView];
+      return {
+        value: value,
+        itemStyle: {
+          color: color(item.cssVar),
+          opacity: missingDose ? 0.45 : 1,
+          borderRadius: [0, 9, 9, 0]
+        }
+      };
+    });
+
+    const max = currentView === 'bmi' ? 1.6 : currentView === 'sucra' ? 100 : 300;
+
+    const option = {
+      backgroundColor: 'transparent',
+      textStyle: { fontFamily: 'SimSun, 宋体, serif' },
+      animation: !reduceMotion,
+      animationDurationUpdate: 650,
+      animationEasingUpdate: 'cubicOut',
+      tooltip: {
+        trigger: 'axis',
+        axisPointer: { type: 'shadow', shadowStyle: { color: line } },
+        backgroundColor: tooltipBg,
+        borderWidth: 0,
+        padding: [12, 14],
+        extraCssText: 'border-radius:12px;box-shadow:' + color('--tooltip-shadow') + ';',
+        textStyle: { color: textPrimary, fontSize: 12, lineHeight: 21 },
+        formatter: function (params) {
+          const item = data[params[0].dataIndex];
+          let detail = '';
+          if (currentView === 'bmi') {
+            detail = 'BMI 平均变化：<b>' + item.bmiMD.toFixed(2) + ' kg/m²</b><br>95% 可信区间：[' + item.bmiLow.toFixed(2) + ', ' + item.bmiHigh.toFixed(2) + ']';
+          } else if (currentView === 'sucra') {
+            detail = 'SUCRA 评分：<b>' + item.sucra.toFixed(1) + '%</b><br>BMI 平均变化：' + item.bmiMD.toFixed(2) + ' kg/m²';
+          } else {
+            detail = item.dose == null
+              ? '最低有效剂量：<b>未发现显著阈值</b><br>BMI 平均变化：' + item.bmiMD.toFixed(2) + ' kg/m²'
+              : '最低有效剂量：<b>' + item.dose + ' METs-min/天</b><br>BMI 平均变化：' + item.bmiMD.toFixed(2) + ' kg/m²';
+          }
+          return '<b>' + item.id + ' · ' + item.short + '</b><br><span style="color:' + textSecondary + '">' + item.full + '</span><br>' + detail;
+        }
+      },
+      grid: { left: 140, right: 66, top: 14, bottom: 48, containLabel: false },
+      xAxis: {
+        type: 'value',
+        min: 0,
+        max: max,
+        splitNumber: currentView === 'bmi' ? 4 : 5,
+        axisLine: { show: false },
+        axisTick: { show: false },
+        axisLabel: {
+          color: textMuted,
+          fontSize: 11,
+          formatter: function (value) {
+            if (currentView === 'bmi') return value.toFixed(1);
+            if (currentView === 'sucra') return value + '%';
+            return value;
+          }
+        },
+        splitLine: { show: true, lineStyle: { color: line, width: 1 } },
+        name: copy[currentView].axis,
+        nameLocation: 'middle',
+        nameGap: 30,
+        nameTextStyle: { color: textSecondary, fontSize: 11 }
+      },
+      yAxis: {
+        type: 'category',
+        inverse: true,
+        data: data.map(function (item) { return item.id; }),
+        axisLine: { show: false },
+        axisTick: { show: false },
+        axisLabel: {
+          show: true,
+          interval: 0,
+          color: textPrimary,
+          fontSize: 12,
+          fontWeight: 600,
+          margin: 16,
+          align: 'right',
+          formatter: function (value, index) {
+            const item = data[index];
+            return '{img_' + item.id + '| }\n{code|' + item.id + '}';
+          },
+          rich: axisRich
+        }
+      },
+      series: [{
+        type: 'bar',
+        data: seriesData,
+        barWidth: 18,
+        showBackground: false,
+        label: {
+          show: true,
+          position: 'right',
+          distance: 8,
+          color: textPrimary,
+          fontSize: 12,
+          fontWeight: 700,
+          formatter: function (params) {
+            const item = data[params.dataIndex];
+            if (currentView === 'bmi') return '−' + Math.abs(item.bmiMD).toFixed(2);
+            if (currentView === 'sucra') return item.sucra.toFixed(1) + '%';
+            if (item.dose == null) return '未发现显著阈值';
+            return item.dose;
+          }
+        },
+        emphasis: {
+          focus: 'self',
+          itemStyle: { shadowBlur: 16, shadowColor: 'rgba(0,0,0,.18)' }
+        }
+      }]
+    };
+
+    if (!myChart) myChart = echarts.init(chartDom, null, { renderer: 'canvas' });
+    myChart.setOption(option, true);
+  }
+
+  function renderAll() {
+    const data = sortedData();
+    chartTitle.textContent = copy[currentView].title;
+    chartSubtitle.innerHTML = copy[currentView].subtitle;
+    chartDom.setAttribute('aria-label', copy[currentView].aria);
+    renderChart(data);
+    renderStats(data);
+  }
+
+  viewToggles.addEventListener('click', function (event) {
+    const button = event.target.closest('.view-toggle');
+    if (!button || button.dataset.view === currentView) return;
+    currentView = button.dataset.view;
+    document.querySelectorAll('.view-toggle').forEach(function (item) {
+      const active = item === button;
+      item.classList.toggle('active', active);
+      item.setAttribute('aria-pressed', String(active));
+    });
+    renderAll();
+  });
+
+  const resizeObserver = new ResizeObserver(function () {
+    if (myChart) myChart.resize();
+  });
+  resizeObserver.observe(chartDom);
+
+  renderAll();
+})();
+</script>
+</body>
+</html>
